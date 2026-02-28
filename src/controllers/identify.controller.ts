@@ -9,7 +9,6 @@ export const identifyController = async (
   try {
     const { email, phoneNumber } = req.body;
 
-    // 1. Sanitize inputs
     const emailStr = email ? String(email) : null;
     const phoneStr = phoneNumber ? String(phoneNumber) : null;
 
@@ -19,14 +18,12 @@ export const identifyController = async (
         .json({ error: "Either email or phoneNumber must be provided." });
     }
 
-    // 2. Find any existing contacts that match the email OR phone
     const matchingContacts = await prisma.contact.findMany({
       where: {
         OR: [{ email: emailStr || null }, { phoneNumber: phoneStr || null }],
       },
     });
 
-    // CASE 1: Completely new customer
     if (matchingContacts.length === 0) {
       const newContact = await prisma.contact.create({
         data: {
@@ -46,8 +43,6 @@ export const identifyController = async (
       });
     }
 
-    // 3. Gather all related contacts to form the "Cluster"
-    // We need to find the root primary IDs to ensure we get the whole family tree
     const rootPrimaryIds = new Set<number>();
     matchingContacts.forEach((contact) => {
       rootPrimaryIds.add(contact.linkedId ? contact.linkedId : contact.id);
@@ -60,34 +55,27 @@ export const identifyController = async (
           { linkedId: { in: Array.from(rootPrimaryIds) } },
         ],
       },
-      orderBy: { createdAt: "asc" }, // Sort oldest first
+      orderBy: { createdAt: "asc" },
     });
 
-    // 4. Identify the oldest primary contact
     const primaries = cluster.filter((c) => c.linkPrecedence === "primary");
     const oldestPrimary = primaries[0];
-
-    // CASE 2: Merging accounts (Primary turns into Secondary)
-    // If we matched multiple primaries (e.g., new request links two previously separate accounts)
 
     if (primaries.length > 1 && oldestPrimary) {
       const primariesToDemote = primaries.slice(1);
 
       for (const p of primariesToDemote) {
-        // Demote the newer primary to secondary
         await prisma.contact.update({
           where: { id: p.id },
           data: { linkPrecedence: "secondary", linkedId: oldestPrimary.id },
         });
 
-        // Reparent all of its existing secondary children to the new oldest primary
         await prisma.contact.updateMany({
           where: { linkedId: p.id },
           data: { linkedId: oldestPrimary?.id },
         });
       }
 
-      // Re-fetch the cluster to get the updated, merged state
       cluster = await prisma.contact.findMany({
         where: {
           OR: [{ id: oldestPrimary.id }, { linkedId: oldestPrimary.id }],
@@ -96,8 +84,6 @@ export const identifyController = async (
       });
     }
 
-    // CASE 3: Create a new Secondary Contact
-    // If the request contains new information that wasn't in the cluster yet
     const existingEmails = new Set(cluster.map((c) => c.email).filter(Boolean));
     const existingPhones = new Set(
       cluster.map((c) => c.phoneNumber).filter(Boolean),
@@ -115,19 +101,16 @@ export const identifyController = async (
           linkPrecedence: "secondary",
         },
       });
-      cluster.push(newSecondary); // Add to current cluster for response formatting
+      cluster.push(newSecondary);
     }
 
-    // 5. Format the Response Data
     const emails = new Set<string>();
     const phoneNumbers = new Set<string>();
     const secondaryContactIds: number[] = [];
 
-    // Ensure the primary contact's email/phone are always first in the arrays
     if (oldestPrimary?.email) emails.add(oldestPrimary.email);
     if (oldestPrimary?.phoneNumber) phoneNumbers.add(oldestPrimary.phoneNumber);
 
-    // Add the rest
     cluster.forEach((c) => {
       if (c.email) emails.add(c.email);
       if (c.phoneNumber) phoneNumbers.add(c.phoneNumber);
