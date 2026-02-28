@@ -4,7 +4,7 @@
 
 ## 🔗 Live Link
 
-https://bitespeed-identity-service-1uh8.onrender.com
+https://bitespeed-identity-service-1uh8.onrender.com/api/v1
 
 ---
 

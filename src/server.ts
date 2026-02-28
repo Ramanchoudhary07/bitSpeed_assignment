@@ -12,9 +12,9 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/", (req, res) => {
+app.get("/api/v1", (req, res) => {
   res.send(
-    "Hello!! \n welcome to the biteSpeed identity API server. \n Please use /api/v1/identify to identify the user.",
+    "Hello!! \n welcome to the biteSpeed identity API server. \n Please use /identify to identify the user.",
   );
 });
 
