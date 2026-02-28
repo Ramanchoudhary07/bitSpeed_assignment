@@ -48,7 +48,7 @@ export const identifyController = async (
       rootPrimaryIds.add(contact.linkedId ? contact.linkedId : contact.id);
     });
 
-    let cluster = await prisma.contact.findMany({
+    let relatedContacts = await prisma.contact.findMany({
       where: {
         OR: [
           { id: { in: Array.from(rootPrimaryIds) } },
@@ -58,7 +58,9 @@ export const identifyController = async (
       orderBy: { createdAt: "asc" },
     });
 
-    const primaries = cluster.filter((c) => c.linkPrecedence === "primary");
+    const primaries = relatedContacts.filter(
+      (c) => c.linkPrecedence === "primary",
+    );
     const oldestPrimary = primaries[0];
 
     if (primaries.length > 1 && oldestPrimary) {
@@ -76,7 +78,7 @@ export const identifyController = async (
         });
       }
 
-      cluster = await prisma.contact.findMany({
+      relatedContacts = await prisma.contact.findMany({
         where: {
           OR: [{ id: oldestPrimary.id }, { linkedId: oldestPrimary.id }],
         },
@@ -84,9 +86,11 @@ export const identifyController = async (
       });
     }
 
-    const existingEmails = new Set(cluster.map((c) => c.email).filter(Boolean));
+    const existingEmails = new Set(
+      relatedContacts.map((c) => c.email).filter(Boolean),
+    );
     const existingPhones = new Set(
-      cluster.map((c) => c.phoneNumber).filter(Boolean),
+      relatedContacts.map((c) => c.phoneNumber).filter(Boolean),
     );
 
     const isNewEmail = emailStr && !existingEmails.has(emailStr);
@@ -101,7 +105,7 @@ export const identifyController = async (
           linkPrecedence: "secondary",
         },
       });
-      cluster.push(newSecondary);
+      relatedContacts.push(newSecondary);
     }
 
     const emails = new Set<string>();
@@ -111,7 +115,7 @@ export const identifyController = async (
     if (oldestPrimary?.email) emails.add(oldestPrimary.email);
     if (oldestPrimary?.phoneNumber) phoneNumbers.add(oldestPrimary.phoneNumber);
 
-    cluster.forEach((c) => {
+    relatedContacts.forEach((c) => {
       if (c.email) emails.add(c.email);
       if (c.phoneNumber) phoneNumbers.add(c.phoneNumber);
       if (c.id !== oldestPrimary?.id) {

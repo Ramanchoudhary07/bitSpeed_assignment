@@ -13,9 +13,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
-  console.log("runnnig now on browser");
-
-  res.send("Hello World!");
+  res.send("Hello World");
 });
 
 app.use("/api/v1/identify", identifyRoute);
