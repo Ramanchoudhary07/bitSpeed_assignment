@@ -13,7 +13,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => {
-  res.send("Hello World");
+  res.send(
+    "Hello!! \n welcome to the biteSpeed identity API server. \n Please use /api/v1/identify to identify the user.",
+  );
 });
 
 app.use("/api/v1/identify", identifyRoute);
